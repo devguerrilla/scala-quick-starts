@@ -2,31 +2,42 @@ import javax.ws.rs.GET
 import javax.ws.rs.Path
 import javax.ws.rs.QueryParam
 
-import com.fasterxml.jackson.annotation.JsonProperty
+import com.fasterxml.jackson.module.scala.DefaultScalaModule
 
 import io.dropwizard.Application
 import io.dropwizard.Configuration
+import io.dropwizard.setup.Bootstrap
 import io.dropwizard.setup.Environment
 
+
+class PasswordPolicy {
+  var rule : String = _
+  var help : String = _
+}
+
 class PasswordValidatorConfiguration extends Configuration {
-  @JsonProperty var rule : String = _
-  @JsonProperty var help : String = _
+  var policies : Map[String, PasswordPolicy] = _   
 }
 
 @Path("/validatePassword")
-class PasswordValidatorResource(rule: String, help: String) {
-  @GET def validate(@QueryParam("password") password: String) : String = {
-    if(password.matches(rule)) 
+class PasswordValidatorResource(policies : Map[String,PasswordPolicy]) {
+  @GET def validate(@QueryParam("policy") policy: String, 
+                    @QueryParam("password") password: String) : String = {
+    if(password.matches(policies(policy).rule)) 
       "OK" 
     else 
-      help
+      policies(policy).help
   }
 }
 
 class PasswordValidatorApplication extends Application[PasswordValidatorConfiguration] {
   def run(configuration: PasswordValidatorConfiguration, environment: Environment) : Unit = {
-    environment.jersey().register(new PasswordValidatorResource(configuration.rule, configuration.help))
+    environment.jersey().register(new PasswordValidatorResource(configuration.policies))
   }
+  
+  override def initialize(bootstrap: Bootstrap[PasswordValidatorConfiguration]) : Unit = {
+    bootstrap.getObjectMapper().registerModule(new DefaultScalaModule)
+  }  
 }
 
 object PasswordValidatorApplication {
